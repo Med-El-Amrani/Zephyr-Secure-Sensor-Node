@@ -127,3 +127,20 @@ chmod +x scripts/*.sh
 west espressif monitor
 ```
 
+## 🔧 Configuration
+
+### Sensor Configuration
+
+The project includes **stub implementations** for testing without hardware. To use real sensors:
+
+1. Disable stub mode in `prj.conf`:
+   ```
+   # CONFIG_I2C_TEMP_SENSOR_STUB=n
+   # CONFIG_SPI_ACCEL_SENSOR_STUB=n
+   # CONFIG_ADC_BATTERY_STUB=n
+   ```
+
+2. Update sensor drivers in `subsys/sensors/` with your specific sensor implementations
+
+3. Configure pins in `boards/esp32s3_devkitc.overlay`
+
