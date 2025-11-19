@@ -22,8 +22,8 @@
 #define BLE_NOTIFY_INTERVAL_MS       10000   /* 10 seconds */
 
 /* MQTT configuration */
-#define MQTT_BROKER_ADDR             "mqtt.example.com"
-#define MQTT_BROKER_PORT             8883    /* TLS port */
+#define MQTT_BROKER_ADDR             "172.20.10.7"
+#define MQTT_BROKER_PORT             1883    /* TLS port */
 #define MQTT_CLIENT_ID               "esp32s3_sensor_node"
 #define MQTT_PUB_TOPIC               "sensors/data"
 #define MQTT_PUB_INTERVAL_MS         15000   /* 15 seconds */
@@ -31,8 +31,8 @@
 #define MQTT_QOS                     1
 
 /* WiFi configuration */
-#define WIFI_SSID                    iPhone
-#define WIFI_PSK                     12345678
+#define WIFI_SSID                    "iPhone"
+#define WIFI_PSK                     "Tomas@2001"
 
 /* Power management */
 #define ENABLE_LOW_POWER_MODE        1
@@ -56,3 +56,9 @@
 #define MQTT_THREAD_PRIORITY         6
 
 #endif /* APP_CONFIG_H */
+/* BLE Service UUIDs */
+#define BLE_UUID_SENSOR_SERVICE \
+    BT_UUID_DECLARE_128(BT_UUID_128_ENCODE(0xF0DEBC9A, 0x7856, 0x3412, 0x7856, 0x341234125678))
+
+#define BLE_UUID_SENSOR_DATA_CHAR \
+    BT_UUID_DECLARE_128(BT_UUID_128_ENCODE(0xF0DEBC9B, 0x7856, 0x3412, 0x7856, 0x341234125678))
