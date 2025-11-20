@@ -110,3 +110,5 @@ int json_encode_sensor_data_with_metadata(const sensor_data_t *data,
     LOG_DBG("Encoded JSON with metadata (%d bytes)", ret);
     return ret;
 }
+
+/* Extended JSON encoder with metadata */

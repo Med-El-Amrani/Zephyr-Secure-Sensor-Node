@@ -10,55 +10,54 @@
 #include <zephyr/bluetooth/uuid.h>
 #include <zephyr/logging/log.h>
 #include "ble_service.h"
-#include "app_config.h"
+#include "sensor_manager.h"
 
 LOG_MODULE_REGISTER(ble_svc, LOG_LEVEL_INF);
 
-/* BLE connection state */
+/* Connexion et état */
 static struct bt_conn *current_conn = NULL;
 static bool notify_enabled = false;
 
-/* Sensor data characteristic value (JSON formatted) */
-static uint8_t sensor_data_value[JSON_BUFFER_SIZE];
-static uint16_t sensor_data_len = 0;
+/* Buffer pour les données JSON */
+#define JSON_BUFFER_SIZE 256
+static char json_buffer[JSON_BUFFER_SIZE];
 
-/* External JSON encoder */
-extern int json_encode_sensor_data_with_metadata(const sensor_data_t *data,
-                                                 char *buffer,
-                                                 size_t buffer_size,
-                                                 const char *device_id);
+/* UUID Service : 12345678-1234-5678-1234-56789abcdef0 */
+#define BT_UUID_SENSOR_SERVICE \
+    BT_UUID_DECLARE_128(BT_UUID_128_ENCODE(0x12345678, 0x1234, 0x5678, 0x1234, 0x56789abcdef0))
+
+/* UUID Characteristic : 12345678-1234-5678-1234-56789abcdef1 */
+#define BT_UUID_SENSOR_DATA_CHAR \
+    BT_UUID_DECLARE_128(BT_UUID_128_ENCODE(0x12345678, 0x1234, 0x5678, 0x1234, 0x56789abcdef1))
 
 /**
- * @brief CCC (Client Characteristic Configuration) changed callback
+ * @brief CCC change handler
  */
 static void sensor_data_ccc_changed(const struct bt_gatt_attr *attr, uint16_t value)
 {
     notify_enabled = (value == BT_GATT_CCC_NOTIFY);
-    LOG_INF("Sensor data notifications %s", notify_enabled ? "enabled" : "disabled");
+    LOG_INF("Notifications %s", notify_enabled ? "enabled" : "disabled");
 }
 
 /**
- * @brief GATT service definition
+ * @brief GATT service
  */
 BT_GATT_SERVICE_DEFINE(sensor_service,
-    BT_GATT_PRIMARY_SERVICE(BLE_UUID_SENSOR_SERVICE),
-    BT_GATT_CHARACTERISTIC(BLE_UUID_SENSOR_DATA_CHAR,
+    BT_GATT_PRIMARY_SERVICE(BT_UUID_SENSOR_SERVICE),
+    BT_GATT_CHARACTERISTIC(BT_UUID_SENSOR_DATA_CHAR,
                           BT_GATT_CHRC_READ | BT_GATT_CHRC_NOTIFY,
                           BT_GATT_PERM_READ,
-                          NULL, NULL, sensor_data_value),
+                          NULL, NULL, json_buffer),
     BT_GATT_CCC(sensor_data_ccc_changed, BT_GATT_PERM_READ | BT_GATT_PERM_WRITE),
 );
 
 /**
- * @brief BLE advertising data
+ * @brief Advertising data
  */
 static const struct bt_data ad[] = {
     BT_DATA_BYTES(BT_DATA_FLAGS, (BT_LE_AD_GENERAL | BT_LE_AD_NO_BREDR)),
-    BT_DATA(BT_DATA_NAME_COMPLETE, BLE_DEVICE_NAME, sizeof(BLE_DEVICE_NAME) - 1),
-};
-
-static const struct bt_data sd[] = {
-    BT_DATA_BYTES(BT_DATA_UUID128_ALL, BLE_UUID_SENSOR_SERVICE),
+    BT_DATA_BYTES(BT_DATA_NAME_COMPLETE,
+        'S', 'e', 'n', 's', 'o', 'r', 'N', 'o', 'd', 'e'),
 };
 
 /**
@@ -68,32 +67,36 @@ static void connected(struct bt_conn *conn, uint8_t err)
 {
     char addr[BT_ADDR_LE_STR_LEN];
     bt_addr_le_to_str(bt_conn_get_dst(conn), addr, sizeof(addr));
-    
+
     if (err) {
         LOG_ERR("Connection failed: %u", err);
         return;
     }
-    
-    LOG_INF("Connected: %s", addr);
+
+    LOG_INF("✓ Connected: %s", addr);
     current_conn = bt_conn_ref(conn);
 }
 
 /**
- * @brief Disconnection callback
+ * @brief Disconnect callback
  */
 static void disconnected(struct bt_conn *conn, uint8_t reason)
 {
     char addr[BT_ADDR_LE_STR_LEN];
     bt_addr_le_to_str(bt_conn_get_dst(conn), addr, sizeof(addr));
-    
-    LOG_INF("Disconnected: %s (reason %u)", addr, reason);
-    
+
+    LOG_INF("✗ Disconnected: %s (reason %u)", addr, reason);
+
     if (current_conn) {
         bt_conn_unref(current_conn);
         current_conn = NULL;
     }
-    
+
     notify_enabled = false;
+    
+    /* Redémarrer advertising après déconnexion */
+    LOG_INF("Restarting advertising...");
+    ble_service_start_advertising();
 }
 
 BT_CONN_CB_DEFINE(conn_callbacks) = {
@@ -103,27 +106,45 @@ BT_CONN_CB_DEFINE(conn_callbacks) = {
 
 int ble_service_init(void)
 {
-    LOG_INF("Initializing BLE service...");
-    
     int err = bt_enable(NULL);
     if (err) {
         LOG_ERR("Bluetooth init failed (err %d)", err);
         return err;
     }
+
+    /* Afficher l'adresse MAC */
+    bt_addr_le_t addr;
+    size_t count = 1;
+    bt_id_get(&addr, &count);
     
+    char addr_str[BT_ADDR_LE_STR_LEN];
+    bt_addr_le_to_str(&addr, addr_str, sizeof(addr_str));
+    
+    LOG_INF("===========================================");
+    LOG_INF("*** MAC Address: %s ***", addr_str);
+    LOG_INF("===========================================");
     LOG_INF("Bluetooth initialized");
+    
     return 0;
 }
 
 int ble_service_start_advertising(void)
 {
-    int err = bt_le_adv_start(BT_LE_ADV_CONN, ad, ARRAY_SIZE(ad), sd, ARRAY_SIZE(sd));
+    struct bt_le_adv_param adv_param = {
+        .id = BT_ID_DEFAULT,
+        .options = BT_LE_ADV_OPT_CONN,  // Utiliser BT_LE_ADV_OPT_CONN au lieu de CONNECTABLE
+        .interval_min = BT_GAP_ADV_FAST_INT_MIN_2,
+        .interval_max = BT_GAP_ADV_FAST_INT_MAX_2,
+        .peer = NULL,
+    };
+
+    int err = bt_le_adv_start(&adv_param, ad, ARRAY_SIZE(ad), NULL, 0);
     if (err) {
-        LOG_ERR("Advertising failed to start (err %d)", err);
+        LOG_ERR("Failed to start advertising (err %d)", err);
         return err;
     }
-    
-    LOG_INF("BLE advertising started");
+
+    LOG_INF("✓ Advertising started - Name: SensorNode");
     return 0;
 }
 
@@ -134,48 +155,39 @@ int ble_service_stop_advertising(void)
         LOG_ERR("Failed to stop advertising (err %d)", err);
         return err;
     }
-    
-    LOG_INF("BLE advertising stopped");
+
+    LOG_INF("Advertising stopped");
     return 0;
 }
 
 int ble_service_notify(const sensor_data_t *data)
 {
-    if (data == NULL) {
-        return -EINVAL;
-    }
-    
     if (!current_conn || !notify_enabled) {
-        LOG_DBG("No connected client or notifications not enabled");
         return -ENOTCONN;
     }
-    
-    /* Encode sensor data to JSON */
-    char json_buf[JSON_BUFFER_SIZE];
-    int len = json_encode_sensor_data_with_metadata(data, json_buf, sizeof(json_buf),
-                                                    BLE_DEVICE_NAME);
-    if (len < 0) {
-        LOG_ERR("Failed to encode JSON: %d", len);
-        return len;
+
+    /* Créer JSON compact */
+    int len = snprintf(json_buffer, sizeof(json_buffer),
+        "{\"t\":%.1f,\"x\":%.2f,\"y\":%.2f,\"z\":%.2f,\"b\":%.2f}",
+        (double)data->temperature_c,
+        (double)data->accel_x,
+        (double)data->accel_y,
+        (double)data->accel_z,
+        (double)data->battery_voltage
+    );
+
+    if (len < 0 || len >= sizeof(json_buffer)) {
+        LOG_ERR("JSON encode failed");
+        return -ENOMEM;
     }
     
-    /* Copy to characteristic value */
-    sensor_data_len = MIN(len, sizeof(sensor_data_value));
-    memcpy(sensor_data_value, json_buf, sensor_data_len);
+    LOG_DBG("Sending: %d bytes", len);
     
-    /* Send notification */
-    int err = bt_gatt_notify(NULL, &sensor_service.attrs[1], 
-                            sensor_data_value, sensor_data_len);
-    if (err) {
-        LOG_ERR("Failed to send notification: %d", err);
-        return err;
-    }
-    
-    LOG_DBG("Sent BLE notification (%d bytes)", sensor_data_len);
-    return 0;
+    return bt_gatt_notify(current_conn, &sensor_service.attrs[1],
+                         json_buffer, len);
 }
 
 bool ble_service_is_connected(void)
 {
-    return (current_conn != NULL);
+    return (current_conn != NULL && notify_enabled);
 }
