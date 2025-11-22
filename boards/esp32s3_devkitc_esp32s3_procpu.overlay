@@ -1,0 +1,41 @@
+/ {
+    aliases {
+        i2c-thermo = &i2c0;
+        spi-accel  = &spi2;
+        batt-sense = &zephyr_user;  /* Point to the user node, not adc1 */
+    };
+    
+    /* Zephyr user node for battery sensing */
+    zephyr_user: zephyr_user {
+        compatible = "zephyr,user";
+        io-channels = <&adc1 3>;   /* ADC1 channel 3 for VBAT */
+    };
+};
+
+/* Enable I2C0 */
+&i2c0 {
+    status = "okay";
+    clock-frequency = <100000>;  /* 100kHz standard mode */
+};
+
+/* Enable SPI2 */
+&spi2 {
+    status = "okay";
+    clock-frequency = <1000000>;  /* 1MHz */
+};
+
+/* Enable ADC1 */
+&adc1 {
+    status = "okay";
+    #address-cells = <1>;
+    #size-cells = <0>;
+    
+    /* Define channel 3 */
+    channel@3 {
+        reg = <3>;
+        zephyr,gain = "ADC_GAIN_1";
+        zephyr,reference = "ADC_REF_INTERNAL";
+        zephyr,acquisition-time = <ADC_ACQ_TIME_DEFAULT>;
+        zephyr,resolution = <12>;
+    };
+};
