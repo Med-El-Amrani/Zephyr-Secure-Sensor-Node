@@ -1,184 +1,143 @@
-/**
- * @file main.c
- * @brief Secure Sensor Node - Main Application
- * 
- * This application coordinates sensor sampling, BLE GATT notifications,
- * and MQTT publishing with TLS support on ESP32-S3.
- */
-
 #include <zephyr/kernel.h>
+#include <zephyr/sys/printk.h>
 #include <zephyr/logging/log.h>
 #include "app_config.h"
 #include "sensor_manager.h"
+#include "power_manager.h"
 #include "ble_service.h"
 #include "mqtt_client.h"
-#include "power_manager.h"
 
 LOG_MODULE_REGISTER(main, LOG_LEVEL_INF);
 
-/* Timing control */
-static uint32_t last_ble_notify_ms = 0;
-static uint32_t last_mqtt_publish_ms = 0;
-
-/**
- * @brief Sensor data callback - called when new sensor data is available
- */
-static void sensor_data_callback(const sensor_data_t *data)
-{
-    uint32_t now_ms = k_uptime_get_32();
-    
-    /* Send BLE notification if interval elapsed and client connected */
-    if (ble_service_is_connected() && 
-        (now_ms - last_ble_notify_ms) >= BLE_NOTIFY_INTERVAL_MS) {
-        
-        int ret = ble_service_notify(data);
-        if (ret == 0) {
-            last_ble_notify_ms = now_ms;
-            LOG_INF("BLE notification sent");
-        }
-    }
-    
-    /* Publish to MQTT if interval elapsed and connected */
-    if (mqtt_client_is_connected() &&
-        (now_ms - last_mqtt_publish_ms) >= MQTT_PUB_INTERVAL_MS) {
-        
-        int ret = mqtt_client_publish_sensor_data(data);
-        if (ret == 0) {
-            last_mqtt_publish_ms = now_ms;
-            LOG_INF("MQTT data published");
-        }
-    }
-    
-    /* Feed watchdog to prevent reset */
-    power_manager_feed_watchdog();
-}
-
-/**
- * @brief Initialize all subsystems
- */
-static int initialize_subsystems(void)
-{
-    int ret;
-    
-    LOG_INF("=== Secure Sensor Node v%d.%d.%d ===",
-            APP_VERSION_MAJOR, APP_VERSION_MINOR, APP_VERSION_PATCH);
-    
-    /* Initialize power management */
-    ret = power_manager_init();
-    if (ret != 0) {
-        LOG_ERR("Failed to initialize power manager: %d", ret);
-        return ret;
-    }
-    
-    /* Setup watchdog */
-#ifdef CONFIG_WATCHDOG
-    ret = power_manager_setup_watchdog(WATCHDOG_TIMEOUT_MS);
-    if (ret != 0) {
-        LOG_WRN("Watchdog setup failed (continuing anyway): %d", ret);
-    }
-#endif
-    
-    /* Initialize sensor manager */
-    ret = sensor_manager_init();
-    if (ret != 0) {
-        LOG_ERR("Failed to initialize sensor manager: %d", ret);
-        return ret;
-    }
-    
-    /* Register sensor data callback */
-    sensor_manager_register_callback(sensor_data_callback);
-    
-    /* Initialize BLE service */
-#ifdef CONFIG_BT
-    ret = ble_service_init();
-    if (ret != 0) {
-        LOG_ERR("Failed to initialize BLE service: %d", ret);
-        return ret;
-    }
-    
-    ret = ble_service_start_advertising();
-    if (ret != 0) {
-        LOG_ERR("Failed to start BLE advertising: %d", ret);
-        return ret;
-    }
-#else
-    LOG_WRN("BLE not configured");
-#endif
-    
-    /* Initialize MQTT client */
-#ifdef CONFIG_MQTT_LIB
-    ret = mqtt_client_init();
-    if (ret != 0) {
-        LOG_ERR("Failed to initialize MQTT client: %d", ret);
-        /* Continue without MQTT */
-    } else {
-        ret = mqtt_client_connect();
-        if (ret != 0) {
-            LOG_ERR("Failed to connect MQTT: %d", ret);
-            /* Continue without MQTT */
-        }
-    }
-#else
-    LOG_WRN("MQTT not configured");
-#endif
-    
-    LOG_INF("All subsystems initialized successfully");
-    return 0;
-}
-
-/**
- * @brief Main application entry point
- */
 int main(void)
 {
-    LOG_INF("Starting Secure Sensor Node...");
+    printk("\n\n=== SECURE SENSOR NODE - FULL VERSION ===\n");
+    LOG_INF("Starting with BLE + MQTT...");
     
-    /* Initialize all subsystems */
-    int ret = initialize_subsystems();
+    // Initialiser power manager
+    int ret = power_manager_init();
     if (ret != 0) {
-        LOG_ERR("Initialization failed: %d", ret);
-        return ret;
+        LOG_ERR("Power manager init failed: %d", ret);
     }
     
-    /* Start sensor sampling */
+    // ✨ Initialiser MQTT client
+    ret = app_mqtt_client_init();
+    if (ret != 0) {
+        LOG_ERR("MQTT init failed: %d", ret);
+        // Continue sans MQTT
+    } else {
+        LOG_INF("MQTT initialized - connecting...");
+        
+        // Connecter au broker MQTT
+        ret = mqtt_client_connect();
+        if (ret != 0) {
+            LOG_ERR("MQTT connection failed: %d", ret);
+            // Continue sans MQTT
+        } else {
+            LOG_INF("✓ MQTT connected to broker!");
+        }
+    }
+    
+    // Initialiser BLE service
+    ret = ble_service_init();
+    if (ret != 0) {
+        LOG_ERR("BLE service init failed: %d", ret);
+        return ret;
+    }
+    LOG_INF("BLE service initialized!");
+    
+    // Démarrer l'advertising BLE
+    ret = ble_service_start_advertising();
+    if (ret != 0) {
+        LOG_ERR("BLE advertising failed: %d", ret);
+        return ret;
+    }
+    LOG_INF("BLE advertising started - device visible!");
+    
+    // Initialiser sensor manager
+    ret = sensor_manager_init();
+    if (ret != 0) {
+        LOG_ERR("Sensor manager init failed: %d", ret);
+    }
+    
     ret = sensor_manager_start();
     if (ret != 0) {
-        LOG_ERR("Failed to start sensor manager: %d", ret);
+        LOG_ERR("Sensor manager start failed: %d", ret);
         return ret;
     }
     
-    LOG_INF("Secure Sensor Node is running...");
-    LOG_INF("- Sensor sampling interval: %d ms", SENSOR_SAMPLE_INTERVAL_MS);
-    LOG_INF("- BLE notification interval: %d ms", BLE_NOTIFY_INTERVAL_MS);
-    LOG_INF("- MQTT publish interval: %d ms", MQTT_PUB_INTERVAL_MS);
+    int counter = 0;
+    sensor_data_t data;
     
-    /* Main loop */
     while (1) {
-        /* Process MQTT events */
-#ifdef CONFIG_MQTT_LIB
+        ret = sensor_manager_get_data(&data);
+        
+        if (ret == 0 && data.valid) {
+            // ===== Affichage Console =====
+            printk("\n=== Sensor Data [%d] ===\n", counter);
+            printk("🌡️  Temperature: %.1f °C\n", (double)data.temperature_c);
+            printk("📐 Accelerometer:\n");
+            printk("    X: %+6.2f m/s²\n", (double)data.accel_x);
+            printk("    Y: %+6.2f m/s²\n", (double)data.accel_y);
+            printk("    Z: %+6.2f m/s²\n", (double)data.accel_z);
+            printk("🔋 Battery: %.2f V\n", (double)data.battery_voltage);
+            
+            // ===== BLE Notification =====
+            if (ble_service_is_connected()) {
+                if (counter > 0) {  // Skip première notification
+                    ret = ble_service_notify(&data);
+                    if (ret == 0) {
+                        printk("✓ BLE notification sent!\n");
+                    } else if (ret == -EAGAIN) {
+                        printk("○ BLE: MTU not ready yet\n");
+                    } else {
+                        printk("✗ BLE notification failed: %d\n", ret);
+                    }
+                } else {
+                    printk("○ BLE: Waiting for MTU negotiation...\n");
+                }
+            } else {
+                printk("○ BLE: Not connected\n");
+            }
+            
+            // ✨ ===== MQTT Publication =====
+
+            if (mqtt_client_is_connected()) {
+                ret = mqtt_client_publish_sensor_data(&data);
+                if (ret == 0) {
+                    printk("✓ MQTT data published!\n");
+                } else {
+                    printk("✗ MQTT publish failed: %d\n", ret);
+                }
+            } else {
+                printk("○ MQTT: Not connected\n");
+            }
+            
+            printk("\n");
+        } else {
+            printk("○ No valid sensor data (ret=%d)\n", ret);
+        }
+        
+        // ✨ Process MQTT events (important!)
         if (mqtt_client_is_connected()) {
             mqtt_client_process();
         }
-#endif
         
-        /* Feed watchdog */
+        // Feed watchdog
         power_manager_feed_watchdog();
         
-        /* Sleep to reduce power consumption */
-#if ENABLE_LOW_POWER_MODE
-        power_manager_enter_low_power(POWER_STATE_IDLE, 1000);
-#else
-        k_msleep(1000);
-#endif
+        // Status log
+        LOG_INF("Counter: %d | BLE: %s | MQTT: %s", 
+                counter,
+                ble_service_is_connected() ? "✓" : "✗",
+                mqtt_client_is_connected() ? "✓" : "✗");
         
-        /* Log status periodically */
-        static uint32_t last_status_log = 0;
-        uint32_t now = k_uptime_get_32();
-        if ((now - last_status_log) >= 60000) {  /* Every 60 seconds */
-            last_status_log = now;
-            LOG_INF("Status: BLE %s, MQTT %s",
-                    ble_service_is_connected() ? "connected" : "disconnected",
-                    mqtt_client_is_connected() ? "connected" : "disconnected");
+        counter++;
+        
+        // Sleep
+        ret = power_manager_enter_low_power(POWER_STATE_IDLE, 5000);
+        if (ret != 0) {
+            k_msleep(5000);
         }
     }
     
