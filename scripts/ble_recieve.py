@@ -2,7 +2,7 @@ import asyncio
 import json
 from bleak import BleakClient
 
-MAC = "98:88:E0:10:1F:2C"
+MAC = "98:88:E0:10:1F:2E"
 CHAR_UUID = "12345678-1234-5678-1234-56789abcdef1"
 
 def notification_handler(sender, data):
