@@ -11,10 +11,13 @@
 
 /* Sensor data structure */
 typedef struct {
-    float temperature_c;      /* Temperature in Celsius */
+    float temperature_c;      /* MPU-6050 internal die temperature (Celsius) */
     float accel_x;            /* Accelerometer X-axis (m/s²) */
     float accel_y;            /* Accelerometer Y-axis (m/s²) */
     float accel_z;            /* Accelerometer Z-axis (m/s²) */
+    float gyro_x;             /* Gyroscope X-axis (rad/s) */
+    float gyro_y;             /* Gyroscope Y-axis (rad/s) */
+    float gyro_z;             /* Gyroscope Z-axis (rad/s) */
     float battery_voltage;    /* Battery voltage (V) */
     uint32_t timestamp_ms;    /* Timestamp in milliseconds */
     bool valid;               /* Data validity flag */

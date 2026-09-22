@@ -53,7 +53,7 @@ static void handle_ipv4_result(struct net_if *iface)
     char ip_addr[NET_IPV4_ADDR_LEN];
 
     for (int i = 0; i < NET_IF_MAX_IPV4_ADDR; i++) {
-        struct net_if_addr *if_addr = &iface->config.ip.ipv4->unicast[i];
+        struct net_if_addr *if_addr = &iface->config.ip.ipv4->unicast[i].ipv4;
 
         if (if_addr->addr_type != NET_ADDR_DHCP || !if_addr->is_used) {
             continue;
@@ -325,8 +325,7 @@ int mqtt_client_connect(void)
 void app_mqtt_disconnect(void)
 {
     if (mqtt_connected) {
-        struct mqtt_disconnect_param disc_param = {0};
-        mqtt_disconnect(&client, &disc_param);
+        mqtt_disconnect(&client, NULL);
         mqtt_connected = false;
         LOG_INF("MQTT disconnected");
     }

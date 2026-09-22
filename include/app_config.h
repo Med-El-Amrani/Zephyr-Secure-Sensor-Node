@@ -22,7 +22,7 @@
 #define BLE_NOTIFY_INTERVAL_MS       10000   /* 10 seconds */
 
 /* MQTT configuration */
-#define MQTT_BROKER_ADDR             "172.20.10.7"
+#define MQTT_BROKER_ADDR             "192.168.1.114"
 #define MQTT_BROKER_PORT             1883    /* TLS port */
 #define MQTT_CLIENT_ID               "esp32s3_sensor_node"
 #define MQTT_PUB_TOPIC               "sensors/data"
@@ -31,8 +31,8 @@
 #define MQTT_QOS                     1
 
 /* WiFi configuration */
-#define WIFI_SSID                    "iPhone"
-#define WIFI_PSK                     "Tomas@2001"
+#define WIFI_SSID                    "Fibre_MarocTelecom_2.4G"
+#define WIFI_PSK                     "CYSFZR2K"
 
 /* Power management */
 #define ENABLE_LOW_POWER_MODE        1

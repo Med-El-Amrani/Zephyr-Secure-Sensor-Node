@@ -88,10 +88,10 @@ secure_sensor_node/
    ```
 
 3. **Configure WiFi credentials:**
-   Edit `prj.conf` and set:
-   ```
-   CONFIG_WIFI_SSID="YourSSID"
-   CONFIG_WIFI_PASSWORD="YourPassword"
+   Edit `include/app_config.h` and set:
+   ```c
+   #define WIFI_SSID "YourSSID"
+   #define WIFI_PSK  "YourPassword"
    ```
 
 4. **Configure MQTT broker:**

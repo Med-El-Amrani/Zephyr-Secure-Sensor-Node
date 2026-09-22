@@ -15,8 +15,7 @@ target_sources(app PRIVATE
     src/mqtt_client.c
     src/power_manager.c
 
-    subsys/sensors/i2c_temp_sensor.c
-    subsys/sensors/spi_accel_sensor.c
+    subsys/sensors/mpu6050_sensor.c
     subsys/sensors/adc_battery.c
 
     subsys/encoding/json_encoder.c

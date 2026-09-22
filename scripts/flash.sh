@@ -4,7 +4,7 @@
 set -e
 
 # Configuration
-PORT="/dev/ttyUSB0"
+PORT="/dev/ttyACM0"
 BAUD="921600"
 
 # Parse arguments

@@ -11,10 +11,10 @@
 LOG_MODULE_REGISTER(sensor_mgr, LOG_LEVEL_INF);
 
 /* External sensor functions */
-extern int i2c_temp_sensor_init(void);
-extern int i2c_temp_sensor_read(float *temp_c);
-extern int spi_accel_sensor_init(void);
-extern int spi_accel_sensor_read(float *x, float *y, float *z);
+extern int mpu6050_sensor_init(void);
+extern int mpu6050_sensor_read(float *temperature,
+                               float *accel_x, float *accel_y, float *accel_z,
+                               float *gyro_x, float *gyro_y, float *gyro_z);
 extern int adc_battery_init(void);
 extern int adc_battery_read(float *voltage_v);
 
@@ -44,16 +44,12 @@ static void sensor_thread(void *arg1, void *arg2, void *arg3)
         sensor_data_t data = {0};
         data.timestamp_ms = k_uptime_get_32();
         
-        /* Read temperature sensor */
-        int ret = i2c_temp_sensor_read(&data.temperature_c);
+        /* Fetch temperature, acceleration, and angular velocity together. */
+        int ret = mpu6050_sensor_read(&data.temperature_c,
+                                      &data.accel_x, &data.accel_y, &data.accel_z,
+                                      &data.gyro_x, &data.gyro_y, &data.gyro_z);
         if (ret != 0) {
-            LOG_WRN("Failed to read temperature: %d", ret);
-        }
-        
-        /* Read accelerometer */
-        ret = spi_accel_sensor_read(&data.accel_x, &data.accel_y, &data.accel_z);
-        if (ret != 0) {
-            LOG_WRN("Failed to read accelerometer: %d", ret);
+            LOG_WRN("Failed to read MPU-6050: %d", ret);
         }
         
         /* Read battery voltage */
@@ -70,9 +66,11 @@ static void sensor_thread(void *arg1, void *arg2, void *arg3)
         memcpy(&latest_data, &data, sizeof(sensor_data_t));
         k_mutex_unlock(&data_mutex);
         
-        LOG_INF("Sensor data: T=%.1f°C, Accel=(%.2f,%.2f,%.2f)m/s², Batt=%.2fV",
+        LOG_INF("Sensor data: T=%.1f°C, Accel=(%.2f,%.2f,%.2f)m/s², "
+                "Gyro=(%.2f,%.2f,%.2f)rad/s, Batt=%.2fV",
                 (double)data.temperature_c,
                 (double)data.accel_x, (double)data.accel_y, (double)data.accel_z,
+                (double)data.gyro_x, (double)data.gyro_y, (double)data.gyro_z,
                 (double)data.battery_voltage);
         
         /* Notify callback if registered */
@@ -91,18 +89,11 @@ int sensor_manager_init(void)
 {
     LOG_INF("Initializing sensor manager...");
     
-    /* Initialize I²C temperature sensor */
-    int ret = i2c_temp_sensor_init();
+    /* Initialize MPU-6050 sensor */
+    int ret = mpu6050_sensor_init();
     if (ret != 0) {
-        LOG_ERR("Failed to initialize I²C temp sensor: %d", ret);
-        /* Continue anyway for stub mode */
-    }
-    
-    /* Initialize SPI accelerometer */
-    ret = spi_accel_sensor_init();
-    if (ret != 0) {
-        LOG_ERR("Failed to initialize SPI accel: %d", ret);
-        /* Continue anyway for stub mode */
+        LOG_ERR("Failed to initialize MPU-6050 sensor: %d", ret);
+        return ret;
     }
     
     /* Initialize ADC battery monitor */
