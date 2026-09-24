@@ -86,6 +86,18 @@ static void display_sensor_data(const sensor_data_t *data, int counter)
     printk("    X: %+6.2f m/s²\n", (double)data->accel_x);
     printk("    Y: %+6.2f m/s²\n", (double)data->accel_y);
     printk("    Z: %+6.2f m/s²\n", (double)data->accel_z);
+    printk(" Gyroscope:\n");
+    printk("    X: %+6.2f rad/s\n", (double)data->gyro_x);
+    printk("    Y: %+6.2f rad/s\n", (double)data->gyro_y);
+    printk("    Z: %+6.2f rad/s\n", (double)data->gyro_z);
+    printk(" Acceleration norm: %.3f m/s² (%s)\n",
+           (double)data->accel_magnitude,
+           data->motion_detected ? "MOTION" : "STILL");
+    printk(" Norm stats: mean=%.3f std=%.3f min=%.3f max=%.3f\n",
+           (double)data->accel_mean, (double)data->accel_stddev,
+           (double)data->accel_min, (double)data->accel_max);
+    printk(" Orientation (+X up): Y=%+.2f° Z=%+.2f°\n",
+           (double)data->tilt_y_deg, (double)data->tilt_z_deg);
     printk(" Battery: %.2f V\n", (double)data->battery_voltage);
 }
 
@@ -164,11 +176,6 @@ static void process_maintenance_tasks(int counter)
     // Feed watchdog
     power_manager_feed_watchdog();
     
-    // Status log
-    LOG_INF("Counter: %d | BLE: %s | MQTT: %s", 
-            counter,
-            ble_service_is_connected() ? "✓" : "✗",
-            mqtt_client_is_connected() ? "✓" : "✗");
 }
 
 static void sleep_cycle(void)

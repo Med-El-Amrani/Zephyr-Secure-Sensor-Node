@@ -18,6 +18,14 @@ typedef struct {
     float gyro_x;             /* Gyroscope X-axis (rad/s) */
     float gyro_y;             /* Gyroscope Y-axis (rad/s) */
     float gyro_z;             /* Gyroscope Z-axis (rad/s) */
+    float accel_magnitude;    /* Acceleration norm (m/s²) */
+    float accel_mean;         /* Mean norm over the statistics window */
+    float accel_stddev;       /* Norm standard deviation */
+    float accel_min;          /* Minimum norm */
+    float accel_max;          /* Maximum norm */
+    float tilt_y_deg;         /* Fused tilt around Y, +X-up reference */
+    float tilt_z_deg;         /* Fused tilt around Z, +X-up reference */
+    bool motion_detected;     /* Acceleration differs significantly from 1 g */
     float battery_voltage;    /* Battery voltage (V) */
     uint32_t timestamp_ms;    /* Timestamp in milliseconds */
     bool valid;               /* Data validity flag */

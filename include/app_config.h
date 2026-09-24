@@ -14,8 +14,14 @@
 #define APP_VERSION_PATCH 0
 
 /* Sensor sampling configuration */
-#define SENSOR_SAMPLE_INTERVAL_MS    5000    /* 5 seconds */
+#define SENSOR_SAMPLE_INTERVAL_MS    20      /* 50 Hz acquisition */
 #define SENSOR_QUEUE_SIZE            10
+
+/* MPU-6050 processing */
+#define SENSOR_FILTER_ALPHA          0.20f
+#define SENSOR_FUSION_ALPHA          0.98f
+#define SENSOR_MOTION_THRESHOLD_MS2  0.35f
+#define SENSOR_STATS_WINDOW_SAMPLES  50      /* One second at 50 Hz */
 
 /* BLE configuration */
 #define BLE_DEVICE_NAME              "SecureSensorNode"

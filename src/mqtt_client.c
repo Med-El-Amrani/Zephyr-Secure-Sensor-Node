@@ -37,7 +37,7 @@ static bool mqtt_connected = false;
 
 /* WiFi - TWO SEPARATE CALLBACKS like working test_wifi */
 static struct net_mgmt_event_callback wifi_cb;
-static struct net_mgmt_event_callback ipv4_cb;  // ✅ SEPARATE callback for IPv4
+static struct net_mgmt_event_callback ipv4_cb;  // SEPARATE callback for IPv4
 
 static K_SEM_DEFINE(wifi_connected_sem, 0, 1);
 static K_SEM_DEFINE(ipv4_assigned, 0, 1);
@@ -63,7 +63,7 @@ static void handle_ipv4_result(struct net_if *iface)
             LOG_INF("========================================");
             LOG_INF("ESP32-S3 IP Address: %s", ip_addr);
             LOG_INF("========================================");
-            k_sem_give(&ipv4_assigned);  // ✅ Signal IP is ready!
+            k_sem_give(&ipv4_assigned);  // Signal IP is ready!
             return;
         }
     }
@@ -108,7 +108,7 @@ static void ipv4_mgmt_event_handler(struct net_mgmt_event_callback *cb,
                                    uint64_t mgmt_event,
                                    struct net_if *iface)
 {
-    if (mgmt_event == NET_EVENT_IPV4_ADDR_ADD) {  // ✅ This event WORKS!
+    if (mgmt_event == NET_EVENT_IPV4_ADDR_ADD) {  // This event WORKS!
         handle_ipv4_result(iface);
     }
 }
@@ -143,7 +143,7 @@ static int wifi_connect(void)
     // Wait for WiFi connection (optional, can skip to IP wait)
     // k_sem_take(&wifi_connected_sem, K_SECONDS(30));
 
-    // ✅ Wait for IP address assignment
+    // Wait for IP address assignment
     LOG_INF("Waiting for IP address...");
     int ret = k_sem_take(&ipv4_assigned, K_SECONDS(30));
     if (ret != 0) {
@@ -241,12 +241,12 @@ int app_mqtt_client_init(void)
 {
     LOG_INF("Initializing MQTT client...");
 
-    /* ✅ Register WiFi events callback */
+    /* Register WiFi events callback */
     net_mgmt_init_event_callback(&wifi_cb, wifi_mgmt_event_handler,
                                 NET_EVENT_WIFI_CONNECT_RESULT |
                                 NET_EVENT_WIFI_DISCONNECT_RESULT);
     
-    /* ✅ Register IPv4 events callback - SEPARATE! */
+    /* Register IPv4 events callback - SEPARATE! */
     net_mgmt_init_event_callback(&ipv4_cb, ipv4_mgmt_event_handler,
                                 NET_EVENT_IPV4_ADDR_ADD);  // ✅ This works!
 

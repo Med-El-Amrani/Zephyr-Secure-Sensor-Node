@@ -7,7 +7,7 @@
 #include <zephyr/logging/log.h>
 #include <zephyr/random/random.h>
 
-LOG_MODULE_REGISTER(adc_battery, LOG_LEVEL_DBG);
+LOG_MODULE_REGISTER(adc_battery, LOG_LEVEL_INF);
 
 int adc_battery_init(void)
 {

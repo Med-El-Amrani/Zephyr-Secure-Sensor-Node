@@ -11,7 +11,7 @@
 #include "sensor_manager.h"
 #include "app_config.h"
 
-LOG_MODULE_REGISTER(json_encoder, LOG_LEVEL_DBG);
+LOG_MODULE_REGISTER(json_encoder, LOG_LEVEL_INF);
 
 /* JSON descriptor for sensor data */
 static const struct json_obj_descr sensor_data_descr[] = {
@@ -89,6 +89,16 @@ int json_encode_sensor_data_with_metadata(const sensor_data_t *data,
                 "\"y\":%.3f,"
                 "\"z\":%.3f"
             "},"
+            "\"gyroscope\":{"
+                "\"x\":%.3f,"
+                "\"y\":%.3f,"
+                "\"z\":%.3f"
+            "},"
+            "\"acceleration_norm\":%.3f,"
+            "\"motion\":%s,"
+            "\"orientation\":{\"tilt_y\":%.2f,\"tilt_z\":%.2f},"
+            "\"statistics\":{\"mean\":%.3f,\"stddev\":%.3f,"
+                             "\"min\":%.3f,\"max\":%.3f},"
             "\"battery\":%.2f"
         "}"
         "}",
@@ -99,6 +109,17 @@ int json_encode_sensor_data_with_metadata(const sensor_data_t *data,
         (double)data->accel_x,
         (double)data->accel_y,
         (double)data->accel_z,
+        (double)data->gyro_x,
+        (double)data->gyro_y,
+        (double)data->gyro_z,
+        (double)data->accel_magnitude,
+        data->motion_detected ? "true" : "false",
+        (double)data->tilt_y_deg,
+        (double)data->tilt_z_deg,
+        (double)data->accel_mean,
+        (double)data->accel_stddev,
+        (double)data->accel_min,
+        (double)data->accel_max,
         (double)data->battery_voltage
     );
     

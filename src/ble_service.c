@@ -30,6 +30,52 @@ static char json_buffer[JSON_BUFFER_SIZE];
 #define BT_UUID_SENSOR_DATA_CHAR \
     BT_UUID_DECLARE_128(BT_UUID_128_ENCODE(0x12345678, 0x1234, 0x5678, 0x1234, 0x56789abcdef1))
 
+static int encode_sensor_data(const sensor_data_t *data)
+{
+    int len = snprintf(json_buffer, sizeof(json_buffer),
+        "{\"t\":%.1f,\"x\":%.2f,\"y\":%.2f,\"z\":%.2f,"
+        "\"gx\":%.2f,\"gy\":%.2f,\"gz\":%.2f,\"ay\":%.1f,"
+        "\"az\":%.1f,\"m\":%d,\"b\":%.2f}",
+        (double)data->temperature_c,
+        (double)data->accel_x,
+        (double)data->accel_y,
+        (double)data->accel_z,
+        (double)data->gyro_x,
+        (double)data->gyro_y,
+        (double)data->gyro_z,
+        (double)data->tilt_y_deg,
+        (double)data->tilt_z_deg,
+        data->motion_detected ? 1 : 0,
+        (double)data->battery_voltage);
+
+    if (len < 0 || len >= sizeof(json_buffer)) {
+        LOG_ERR("BLE JSON encode failed");
+        return -ENOMEM;
+    }
+
+    return len;
+}
+
+static ssize_t read_sensor_data(struct bt_conn *conn,
+                                const struct bt_gatt_attr *attr,
+                                void *buf, uint16_t len, uint16_t offset)
+{
+    sensor_data_t data;
+    int ret = sensor_manager_get_data(&data);
+
+    if (ret != 0) {
+        return BT_GATT_ERR(BT_ATT_ERR_UNLIKELY);
+    }
+
+    ret = encode_sensor_data(&data);
+    if (ret < 0) {
+        return BT_GATT_ERR(BT_ATT_ERR_UNLIKELY);
+    }
+
+    return bt_gatt_attr_read(conn, attr, buf, len, offset,
+                             json_buffer, ret);
+}
+
 /**
  * @brief CCC change handler
  */
@@ -47,7 +93,7 @@ BT_GATT_SERVICE_DEFINE(sensor_service,
     BT_GATT_CHARACTERISTIC(BT_UUID_SENSOR_DATA_CHAR,
                           BT_GATT_CHRC_READ | BT_GATT_CHRC_NOTIFY,
                           BT_GATT_PERM_READ,
-                          NULL, NULL, json_buffer),
+                          read_sensor_data, NULL, json_buffer),
     BT_GATT_CCC(sensor_data_ccc_changed, BT_GATT_PERM_READ | BT_GATT_PERM_WRITE),
 );
 
@@ -166,24 +212,15 @@ int ble_service_notify(const sensor_data_t *data)
         return -ENOTCONN;
     }
 
-    /* Créer JSON compact */
-    int len = snprintf(json_buffer, sizeof(json_buffer),
-        "{\"t\":%.1f,\"x\":%.2f,\"y\":%.2f,\"z\":%.2f,\"b\":%.2f}",
-        (double)data->temperature_c,
-        (double)data->accel_x,
-        (double)data->accel_y,
-        (double)data->accel_z,
-        (double)data->battery_voltage
-    );
-
-    if (len < 0 || len >= sizeof(json_buffer)) {
-        LOG_ERR("JSON encode failed");
-        return -ENOMEM;
+    int len = encode_sensor_data(data);
+    if (len < 0) {
+        return len;
     }
     
     LOG_DBG("Sending: %d bytes", len);
     
-    return bt_gatt_notify(current_conn, &sensor_service.attrs[1],
+    /* attrs[2] is the characteristic value; attrs[1] is its declaration. */
+    return bt_gatt_notify(current_conn, &sensor_service.attrs[2],
                          json_buffer, len);
 }
 

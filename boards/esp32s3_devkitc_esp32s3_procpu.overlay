@@ -36,7 +36,7 @@
         reg = <0x68>;
         status = "okay";
 
-        accel-fs = <2>;
+        accel-fs = <2>; 
         gyro-fs = <250>;
     };
 };
